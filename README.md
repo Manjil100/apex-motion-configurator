@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# APEX MOTION
 
-## Getting Started
+Configure your dream. Experience the difference.
 
-First, run the development server:
+An independent concept platform for configuring performance cars in 3D. Not affiliated with any vehicle manufacturer.
+
+**Status: Phase 1 of 8 complete.** Project set-up, design system, brand identity, routing and all page layouts. There is no 3D rendering, database or sign-in yet; the pages say so wherever that matters.
+
+## Run it
+
+Requires Node 20.9 or newer (built and tested on Node 22).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Other scripts:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Command | Does |
+| --- | --- |
+| `npm run build` | Production build |
+| `npm start` | Serve the production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript, no emit |
+| `npm test` | Unit tests (Vitest) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+No environment variables are needed in Phase 1. `.env.example` lists the ones Phase 6 will use.
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
+Next.js 16 (App Router, Turbopack, Cache Components), React 19, TypeScript, Tailwind CSS 4, Zustand, Framer Motion (installed, first used in Phase 2). Three.js, React Three Fiber, Drei and GSAP join in Phase 2; Supabase in Phase 6.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+app/                      routes
+  page.tsx                home
+  cars/                   catalogue and /cars/[slug] details
+  configure/              car chooser and /configure/[slug] configurator
+  garage/ compare/ gallery/ about/ contact/ admin/
+  auth/login|register|recover/
+components/
+  brand/                  logo
+  ui/                     Button, Nav, Footer, PageHeader, StudioBay
+  cars/ configurator/ compare/ garage/ contact/ auth/
+lib/
+  vehicles/               types.ts (data model), data.ts (nine-car seed)
+  customisation/          options.ts (categories, pricing, share-link encoding)
+stores/                   garage.ts (saved builds, local storage)
+tests/                    unit tests
+docs/                     adding-a-vehicle.md, phase-1-report.md
+```
 
-## Deploy on Vercel
+## Rules the code follows
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **No fake 3D.** Until a car has a licensed, verified model, the interface shows the empty studio bay with the car's generation code. It never shows a stand-in car or a static picture presented as 3D.
+- **No invented facts.** Values that could be read as manufacturer figures are wrapped in `Sourced<T>` with a status of `verified`, `unverified` or `illustrative`. Performance figures, dimensions and base prices are blank until verified. Option prices are illustrative and labelled.
+- **No editorial-only assets without sign-off.** `VehicleAsset.licence.commercialUse` must be true before a model is marked verified; a unit test enforces it.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploying
+
+The project deploys to Vercel with default settings: import the repository, framework preset Next.js, no environment variables for Phase 1.
+
+## Connecting to GitHub
+
+Git is already initialised. To publish:
+
+```bash
+git add -A && git commit -m "Phase 1: design system, routing and page layouts"
+git remote add origin https://github.com/<you>/apex-motion.git
+git push -u origin main
+```
+
+## Roadmap
+
+1. Set-up, design system, brand, routing, page layouts (done)
+2. 3D showroom and vehicle loading system
+3. Porsche 911 as the first configurable car
+4. Reusable customisation engine
+5. Remaining eight cars
+6. Supabase, authentication, saved builds, garage
+7. Compare, gallery, sharing, admin
+8. Testing, optimisation, security review, deployment
+
+See `docs/phase-1-report.md` for what was tested and what is deliberately not live.

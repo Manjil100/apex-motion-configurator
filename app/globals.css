@@ -1,26 +1,178 @@
 @import "tailwindcss";
+@import "@fontsource-variable/saira/standard.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+  APEX MOTION design tokens.
+  Silver on carbon carries the brand; violet is reserved for the thing
+  the user can act on or has selected. Nothing else is violet.
+*/
+@theme {
+  --color-carbon: #07080a;
+  --color-graphite: #111317;
+  --color-slate: #1a1d22;
+  --color-line: #2a2e35;
+  --color-steel: #8b919b;
+  --color-silver: #c8ccd3;
+  --color-chalk: #f3f4f6;
+  --color-volt: #8f6bff;
+  --color-volt-deep: #5b3fd6;
+  --color-flag: #e5484d;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Saira Variable", var(--font-geist-sans), sans-serif;
+
+  --text-display: clamp(2.75rem, 7.2vw, 6.5rem);
+  --text-title: clamp(2rem, 4vw, 3.25rem);
+  --text-heading: clamp(1.375rem, 2.2vw, 1.75rem);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  background: var(--color-carbon);
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-carbon);
+  color: var(--color-silver);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+::selection {
+  background: var(--color-volt);
+  color: var(--color-carbon);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-volt);
+  outline-offset: 3px;
+}
+
+@layer components {
+  /* Display type: Saira pushed wide, the way pit boards and timing screens set it. */
+  .type-display {
+    font-family: var(--font-display);
+    font-stretch: 125%;
+    font-weight: 600;
+    font-size: var(--text-display);
+    line-height: 0.95;
+    letter-spacing: -0.02em;
+    color: var(--color-chalk);
+  }
+  .type-title {
+    font-family: var(--font-display);
+    font-stretch: 118%;
+    font-weight: 600;
+    font-size: var(--text-title);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    color: var(--color-chalk);
+  }
+  .type-heading {
+    font-family: var(--font-display);
+    font-stretch: 112%;
+    font-weight: 600;
+    font-size: var(--text-heading);
+    line-height: 1.15;
+    color: var(--color-chalk);
+  }
+  .type-label {
+    font-family: var(--font-display);
+    font-stretch: 112%;
+    font-weight: 500;
+    font-size: 0.8125rem;
+    letter-spacing: 0.04em;
+    color: var(--color-steel);
+  }
+  .type-lead {
+    font-size: 1.125rem;
+    line-height: 1.6;
+    color: var(--color-silver);
+    max-width: 38rem;
+  }
+
+  /* The one shaped element in the system: a chamfered corner, cut like a body panel. */
+  .chamfer {
+    clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  }
+  .chamfer-lg {
+    clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 28px, 100% 100%, 28px 100%, 0 calc(100% - 28px));
+  }
+
+  .metal {
+    background: linear-gradient(180deg, #f6f7f9 0%, #c3c8d0 46%, #8d939d 54%, #d5d9df 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .shell {
+    width: 100%;
+    max-width: 84rem;
+    margin-inline: auto;
+    padding-inline: clamp(1.25rem, 4vw, 3rem);
+  }
+
+  .field {
+    width: 100%;
+    background: var(--color-graphite);
+    border: 1px solid var(--color-line);
+    color: var(--color-chalk);
+    padding: 0.75rem 0.875rem;
+    font-size: 0.9375rem;
+    transition: border-color 150ms;
+  }
+  .field::placeholder {
+    color: var(--color-steel);
+  }
+  .field:hover {
+    border-color: var(--color-steel);
+  }
+  .field[aria-invalid="true"] {
+    border-color: var(--color-flag);
+  }
+}
+
+/* Hero racing line draws once on load. */
+@keyframes draw-line {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.apex-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: draw-line 2.2s var(--ease-out-expo) 0.15s forwards;
+}
+.apex-rise {
+  opacity: 0;
+  animation: rise 0.9s var(--ease-out-expo) forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apex-draw,
+  .apex-rise {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

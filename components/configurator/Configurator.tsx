@@ -8,6 +8,9 @@ import type { Vehicle } from "@/lib/vehicles/types";
 import { vehicleName } from "@/lib/vehicles/data";
 import {
   categories,
+  customPaintId,
+  CUSTOM_PAINT_PRICE,
+  isCustomPaint,
   decodeSelection,
   defaultSelection,
   encodeSelection,
@@ -18,11 +21,13 @@ import {
   type Selection,
 } from "@/lib/customisation/options";
 import { useGarage } from "@/stores/garage";
-import { StudioBay } from "@/components/ui/StudioBay";
+import { ShowroomStage } from "@/components/showroom/ShowroomStage";
+import { paintProps } from "@/lib/showroom/materials";
+import { isEnvironmentId } from "@/lib/showroom/environments";
+import { useShowroom } from "@/stores/showroom";
 import { Button } from "@/components/ui/Button";
 
 const groups = ["Exterior", "Wheels", "Interior", "Body", "Scene"] as const;
-const views = ["Front", "Side", "Rear", "Interior"] as const;
 
 export function Configurator({
   vehicle,
@@ -40,7 +45,6 @@ export function Configurator({
   const [selection, setSelection] = useState<Selection>(() => decodeSelection(initial));
   const [loadedBuild, setLoadedBuild] = useState<string | null>(null);
   const [group, setGroup] = useState<(typeof groups)[number]>("Exterior");
-  const [customPaint, setCustomPaint] = useState("#8f6bff");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -53,6 +57,26 @@ export function Configurator({
   const total = useMemo(() => optionsTotal(selection), [selection]);
   const modelReady = vehicle.asset.status === "verified";
   const paint = findOption("paint", selection.paint[0]);
+  const canvas = useShowroom((s) => s.canvas);
+  const look = useMemo(
+    () => ({
+      paint: paintProps(paint?.swatch ?? "#0b0b0d", paint?.finish),
+      caliper: findOption("calipers", selection.calipers[0])?.swatch ?? "#111214",
+      leather: findOption("interior", selection.interior[0])?.swatch ?? "#141416",
+      stitching: findOption("stitching", selection.stitching[0])?.swatch ?? "#3a3b40",
+      environment: isEnvironmentId(selection.lighting[0]) ? selection.lighting[0] : ("studio" as const),
+    }),
+    [paint?.swatch, paint?.finish, selection.calipers, selection.interior, selection.stitching, selection.lighting],
+  );
+
+  const download = () => {
+    if (!canvas) return;
+    const link = document.createElement("a");
+    link.download = `apex-motion-${vehicle.slug}-${modelReady ? "build" : "material-sample"}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    setMessage(modelReady ? "Image downloaded." : "Image of the material sample downloaded. It does not show the car.");
+  };
 
   const choose = (category: Category, optionId: string) => {
     setMessage(null);
@@ -134,17 +158,14 @@ export function Configurator({
         <Button variant="secondary" onClick={reset}>
           Reset configuration
         </Button>
-        <Button
-          variant="secondary"
-          className="col-span-2"
-          disabled
-          title="Needs the 3D viewport, which arrives in Phase 2"
-        >
+        <Button variant="secondary" className="col-span-2" onClick={download} disabled={!canvas}>
           Download image
         </Button>
-        <p className="col-span-2 text-[0.8125rem] text-steel">
-          Download image unlocks when the 3D viewport is live. There is nothing real to capture yet.
-        </p>
+        {!modelReady && (
+          <p className="col-span-2 text-[0.8125rem] text-steel">
+            Until the {vehicle.model} model arrives, the image shows the material sample in the studio, not the car.
+          </p>
+        )}
       </div>
       <p aria-live="polite" className="min-h-5 text-[0.875rem] text-volt">
         {message}
@@ -238,17 +259,25 @@ export function Configurator({
                 </div>
               )}
               {c.id === "paint" && (
-                <div className="mt-3 flex items-center gap-3 border border-line px-3 py-2.5">
+                <div
+                  className={clsx(
+                    "mt-3 flex items-center gap-3 border px-3 py-2.5",
+                    isCustomPaint(selection.paint[0]) ? "border-volt bg-volt/10" : "border-line",
+                  )}
+                >
                   <input
                     id="custom-paint"
                     type="color"
-                    value={customPaint}
-                    onChange={(e) => setCustomPaint(e.target.value)}
-                    disabled
-                    className="h-8 w-10 cursor-not-allowed bg-transparent opacity-50"
+                    value={isCustomPaint(selection.paint[0]) ? (paint?.swatch ?? "#8f6bff") : "#8f6bff"}
+                    onChange={(e) => {
+                      setMessage(null);
+                      setSelection((prev) => ({ ...prev, paint: [customPaintId(e.target.value)] }));
+                    }}
+                    className="h-8 w-10 cursor-pointer bg-transparent"
                   />
-                  <label htmlFor="custom-paint" className="text-[0.8125rem] text-steel">
-                    Custom colour unlocks with the 3D model, where you can see the result on the car.
+                  <label htmlFor="custom-paint" className="text-[0.8125rem] text-silver">
+                    Custom colour
+                    <span className="block text-steel">Mixed to order, {formatPrice(CUSTOM_PAINT_PRICE)}</span>
                   </label>
                 </div>
               )}
@@ -262,51 +291,30 @@ export function Configurator({
     <div className="lg:grid lg:h-[calc(100dvh-4rem)] lg:grid-cols-[1fr_26rem]">
       {/* Viewport */}
       <section aria-label="Vehicle viewport" className="relative flex h-[58dvh] flex-col lg:h-auto">
-        <StudioBay vehicle={vehicle} size="stage" showStatus={false} className="flex-1">
-          <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5">
+        <ShowroomStage vehicle={vehicle} look={look}>
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5">
             <div>
               <p className="type-label">{vehicle.manufacturer}</p>
               <h1 className="type-heading">
                 {vehicle.model} <span className="font-normal text-silver">{vehicle.variant}</span>
               </h1>
             </div>
-            <Link href={`/cars/${vehicle.slug}`} className="text-[0.875rem] text-steel underline-offset-4 hover:text-chalk hover:underline">
+            <Link
+              href={`/cars/${vehicle.slug}`}
+              className="pointer-events-auto text-[0.875rem] text-steel underline-offset-4 hover:text-chalk hover:underline"
+            >
               Vehicle details
             </Link>
           </div>
 
           {!modelReady && (
-            <div className="absolute inset-x-5 bottom-20 mx-auto max-w-md border border-line bg-carbon/80 p-4 backdrop-blur lg:bottom-24">
-              <p className="font-medium text-chalk">The studio is ready. The car is not here yet.</p>
-              <p className="mt-1 text-[0.875rem] text-silver">
-                A licensed, verified 3D model of this {vehicle.model} has not been sourced. Your choices are saved and
-                priced now, and will apply to the model when it arrives.
-              </p>
-              <div className="mt-3 flex items-center gap-3 text-[0.8125rem] text-steel">
-                <span
-                  className="h-6 w-10 border border-white/15"
-                  style={{ background: paint?.swatch }}
-                  aria-hidden="true"
-                />
-                Selected paint: {paint?.name}
-              </div>
-            </div>
+            <p className="pointer-events-none absolute left-5 top-[4.75rem] max-w-[17rem] border-l-2 border-volt bg-carbon/70 px-3 py-2 text-[0.8125rem] leading-snug text-silver backdrop-blur">
+              <span className="block font-medium text-chalk">Material sample, not the {vehicle.model}</span>
+              No licensed 3D model of this car has been sourced yet. Your paint, caliper, leather and stitching choices
+              are shown on sample forms.
+            </p>
           )}
-
-          <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 p-4">
-            {views.map((v) => (
-              <button
-                key={v}
-                type="button"
-                disabled={!modelReady}
-                title={modelReady ? undefined : "Camera views need the 3D model"}
-                className="h-9 border border-line bg-carbon/70 px-3.5 text-[0.8125rem] text-silver backdrop-blur disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {v}
-              </button>
-            ))}
-          </div>
-        </StudioBay>
+        </ShowroomStage>
       </section>
 
       {/* Desktop side panel */}

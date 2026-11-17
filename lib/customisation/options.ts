@@ -140,7 +140,21 @@ export function defaultSelection(): Selection {
   ) as Selection;
 }
 
-export function findOption(categoryId: CategoryId, optionId: string): Option | undefined {
+const CUSTOM_PAINT = /^custom-([0-9a-f]{6})$/;
+/** Illustrative surcharge for a colour mixed to order. */
+export const CUSTOM_PAINT_PRICE = 5200;
+
+export const customPaintId = (hex: string) => `custom-${hex.replace("#", "").toLowerCase()}`;
+export const isCustomPaint = (optionId: string | undefined) => Boolean(optionId && CUSTOM_PAINT.test(optionId));
+
+export function findOption(categoryId: CategoryId, optionId: string | undefined): Option | undefined {
+  if (!optionId) return undefined;
+  if (categoryId === "paint") {
+    const custom = CUSTOM_PAINT.exec(optionId);
+    if (custom) {
+      return { id: optionId, name: `Custom #${custom[1].toUpperCase()}`, price: CUSTOM_PAINT_PRICE, swatch: `#${custom[1]}`, finish: "gloss" };
+    }
+  }
   return categories.find((c) => c.id === categoryId)?.options.find((o) => o.id === optionId);
 }
 
@@ -165,7 +179,7 @@ export function decodeSelection(encoded: string | null | undefined): Selection {
     const [rawId, rawOptions = ""] = part.split(":");
     const category = categories.find((c) => c.id === rawId);
     if (!category) continue;
-    const valid = rawOptions.split(",").filter((id) => category.options.some((o) => o.id === id));
+    const valid = rawOptions.split(",").filter((id) => findOption(category.id, id) !== undefined);
     if (category.multi) selection[category.id] = [...new Set(valid)];
     else if (valid[0]) selection[category.id] = [valid[0]];
   }

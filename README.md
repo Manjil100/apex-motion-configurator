@@ -4,7 +4,7 @@ Configure your dream. Experience the difference.
 
 An independent concept platform for configuring performance cars in 3D. Not affiliated with any vehicle manufacturer.
 
-**Status: Phase 1 of 8 complete.** Project set-up, design system, brand identity, routing and all page layouts. There is no 3D rendering, database or sign-in yet; the pages say so wherever that matters.
+**Status: Phase 2 of 8 complete.** The configurator now runs a real-time 3D studio. No licensed car model exists yet, so the studio shows a labelled material sample, not a car. There is no database or sign-in yet; the pages say so wherever that matters.
 
 ## Run it
 
@@ -29,7 +29,7 @@ No environment variables are needed in Phase 1. `.env.example` lists the ones Ph
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack, Cache Components), React 19, TypeScript, Tailwind CSS 4, Zustand, Framer Motion (installed, first used in Phase 2). Three.js, React Three Fiber, Drei and GSAP join in Phase 2; Supabase in Phase 6.
+Next.js 16 (App Router, Turbopack, Cache Components), React 19, TypeScript, Tailwind CSS 4, Zustand, Three.js with React Three Fiber and Drei, GSAP for camera moves. Framer Motion is installed but not yet used. Supabase joins in Phase 6.
 
 ## Structure
 
@@ -43,11 +43,14 @@ app/                      routes
 components/
   brand/                  logo
   ui/                     Button, Nav, Footer, PageHeader, StudioBay
+  showroom/               ShowroomStage (loader, fallback, controls), Showroom (canvas),
+                          Studio, CameraRig, VehicleModel, SampleForm (placeholder)
   cars/ configurator/ compare/ garage/ contact/ auth/
 lib/
-  vehicles/               types.ts (data model), data.ts (nine-car seed)
+  vehicles/               types.ts (data model), data.ts (nine-car seed), slots.ts (mesh mapping, disposal)
+  showroom/               quality.ts, environments.ts, cameras.ts, materials.ts
   customisation/          options.ts (categories, pricing, share-link encoding)
-stores/                   garage.ts (saved builds, local storage)
+stores/                   garage.ts (saved builds), showroom.ts (quality tier, camera commands)
 tests/                    unit tests
 docs/                     adding-a-vehicle.md, phase-1-report.md
 ```
@@ -75,7 +78,7 @@ git push -u origin main
 ## Roadmap
 
 1. Set-up, design system, brand, routing, page layouts (done)
-2. 3D showroom and vehicle loading system
+2. 3D showroom and vehicle loading system (done)
 3. Porsche 911 as the first configurable car
 4. Reusable customisation engine
 5. Remaining eight cars
@@ -83,4 +86,4 @@ git push -u origin main
 7. Compare, gallery, sharing, admin
 8. Testing, optimisation, security review, deployment
 
-See `docs/phase-1-report.md` for what was tested and what is deliberately not live.
+See `docs/phase-1-report.md` and `docs/phase-2-report.md` for what was tested and what is deliberately not live.

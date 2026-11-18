@@ -22,7 +22,12 @@ import {
 } from "@/lib/customisation/options";
 import { useGarage } from "@/stores/garage";
 import { ShowroomStage } from "@/components/showroom/ShowroomStage";
-import { paintProps } from "@/lib/showroom/materials";
+import { paintProps, trimProps } from "@/lib/showroom/materials";
+import {
+  categoryAvailability,
+  optionAvailability,
+  sanitiseSelection,
+} from "@/lib/customisation/capabilities";
 import { isEnvironmentId } from "@/lib/showroom/environments";
 import { useShowroom } from "@/stores/showroom";
 import { Button } from "@/components/ui/Button";
@@ -40,45 +45,95 @@ export function Configurator({
 }) {
   const router = useRouter();
   const garage = useGarage();
-  const existing = buildId ? garage.builds.find((b) => b.id === buildId && b.vehicleSlug === vehicle.slug) : undefined;
+  const existing = buildId
+    ? garage.builds.find(
+        (b) => b.id === buildId && b.vehicleSlug === vehicle.slug,
+      )
+    : undefined;
 
-  const [selection, setSelection] = useState<Selection>(() => decodeSelection(initial));
+  const removedNote = (removed: string[]) =>
+    removed.length
+      ? `Removed ${removed.join(", ")}: not available on this ${vehicle.model} model.`
+      : null;
+  const [initialState] = useState(() =>
+    sanitiseSelection(vehicle.asset, decodeSelection(initial)),
+  );
+  const [selection, setSelection] = useState<Selection>(initialState.selection);
   const [loadedBuild, setLoadedBuild] = useState<string | null>(null);
   const [group, setGroup] = useState<(typeof groups)[number]>("Exterior");
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(() =>
+    removedNote(initialState.removed),
+  );
 
   // A saved build is only readable after the garage store has hydrated from local storage.
   if (existing && loadedBuild !== existing.id) {
+    const loaded = sanitiseSelection(
+      vehicle.asset,
+      structuredClone(existing.selection),
+    );
     setLoadedBuild(existing.id);
-    setSelection(structuredClone(existing.selection));
+    setSelection(loaded.selection);
+    setMessage(removedNote(loaded.removed));
   }
 
   const total = useMemo(() => optionsTotal(selection), [selection]);
   const modelReady = vehicle.asset.status === "verified";
+  const hasModel = vehicle.asset.modelUrl !== null;
   const paint = findOption("paint", selection.paint[0]);
   const canvas = useShowroom((s) => s.canvas);
   const look = useMemo(
     () => ({
       paint: paintProps(paint?.swatch ?? "#0b0b0d", paint?.finish),
-      caliper: findOption("calipers", selection.calipers[0])?.swatch ?? "#111214",
-      leather: findOption("interior", selection.interior[0])?.swatch ?? "#141416",
-      stitching: findOption("stitching", selection.stitching[0])?.swatch ?? "#3a3b40",
-      environment: isEnvironmentId(selection.lighting[0]) ? selection.lighting[0] : ("studio" as const),
+      caliper:
+        findOption("calipers", selection.calipers[0])?.swatch ?? "#111214",
+      leather:
+        findOption("interior", selection.interior[0])?.swatch ?? "#141416",
+      stitching:
+        findOption("stitching", selection.stitching[0])?.swatch ?? "#3a3b40",
+      trim: trimProps(selection.trim[0]),
+      wheels: selection.wheels[0] ?? "standard",
+      body: selection.body,
+      environment: isEnvironmentId(selection.lighting[0])
+        ? selection.lighting[0]
+        : ("studio" as const),
     }),
-    [paint?.swatch, paint?.finish, selection.calipers, selection.interior, selection.stitching, selection.lighting],
+    [
+      paint?.swatch,
+      paint?.finish,
+      selection.calipers,
+      selection.interior,
+      selection.stitching,
+      selection.trim,
+      selection.wheels,
+      selection.body,
+      selection.lighting,
+    ],
   );
 
   const download = () => {
     if (!canvas) return;
     const link = document.createElement("a");
-    link.download = `apex-motion-${vehicle.slug}-${modelReady ? "build" : "material-sample"}.png`;
+    const kind = modelReady
+      ? "build"
+      : hasModel
+        ? "placeholder-model"
+        : "material-sample";
+    link.download = `apex-motion-${vehicle.slug}-${kind}.png`;
     link.href = canvas.toDataURL("image/png");
     link.click();
-    setMessage(modelReady ? "Image downloaded." : "Image of the material sample downloaded. It does not show the car.");
+    setMessage(
+      modelReady
+        ? "Image downloaded."
+        : hasModel
+          ? "Image downloaded. It shows a development placeholder model, not the finished car."
+          : "Image of the material sample downloaded. It does not show the car.",
+    );
   };
 
   const choose = (category: Category, optionId: string) => {
+    if (!optionAvailability(vehicle.asset, category, optionId).available)
+      return;
     setMessage(null);
     setSelection((prev) => {
       const current = prev[category.id];
@@ -96,8 +151,14 @@ export function Configurator({
       garage.update(existing.id, selection);
       setMessage(`Saved changes to “${existing.name}”.`);
     } else {
-      const build = garage.save({ name: `${vehicleName(vehicle)} build`, vehicleSlug: vehicle.slug, selection });
-      router.replace(`/configure/${vehicle.slug}?build=${build.id}`, { scroll: false });
+      const build = garage.save({
+        name: `${vehicleName(vehicle)} build`,
+        vehicleSlug: vehicle.slug,
+        selection,
+      });
+      router.replace(`/configure/${vehicle.slug}?build=${build.id}`, {
+        scroll: false,
+      });
       setMessage("Saved to My garage on this device.");
     }
   };
@@ -123,12 +184,19 @@ export function Configurator({
         {categories
           .filter((c) => c.group !== "Scene")
           .map((c) => {
-            const chosen = selection[c.id].map((id) => findOption(c.id, id)).filter((o) => o !== undefined);
+            const chosen = selection[c.id]
+              .map((id) => findOption(c.id, id))
+              .filter((o) => o !== undefined);
             return (
-              <div key={c.id} className="flex items-baseline justify-between gap-4">
+              <div
+                key={c.id}
+                className="flex items-baseline justify-between gap-4"
+              >
                 <dt className="text-steel">{c.name}</dt>
                 <dd className="text-right text-chalk">
-                  {chosen.length ? chosen.map((o) => o.name).join(", ") : "None"}
+                  {chosen.length
+                    ? chosen.map((o) => o.name).join(", ")
+                    : "None"}
                 </dd>
               </div>
             );
@@ -144,8 +212,8 @@ export function Configurator({
           <span className="type-heading">{formatPrice(total)}</span>
         </div>
         <p className="mt-3 text-[0.8125rem] leading-relaxed text-steel">
-          Option prices are illustrative and are not manufacturer prices. No total is shown until the base price is
-          verified.
+          Option prices are illustrative and are not manufacturer prices. No
+          total is shown until the base price is verified.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -158,12 +226,19 @@ export function Configurator({
         <Button variant="secondary" onClick={reset}>
           Reset configuration
         </Button>
-        <Button variant="secondary" className="col-span-2" onClick={download} disabled={!canvas}>
+        <Button
+          variant="secondary"
+          className="col-span-2"
+          onClick={download}
+          disabled={!canvas}
+        >
           Download image
         </Button>
         {!modelReady && (
           <p className="col-span-2 text-[0.8125rem] text-steel">
-            Until the {vehicle.model} model arrives, the image shows the material sample in the studio, not the car.
+            {hasModel
+              ? `The image shows a development placeholder, not the finished ${vehicle.model}.`
+              : `Until the ${vehicle.model} model arrives, the image shows the material sample in the studio, not the car.`}
           </p>
         )}
       </div>
@@ -175,7 +250,11 @@ export function Configurator({
 
   const panel = (
     <div>
-      <div role="tablist" aria-label="Customisation groups" className="flex gap-1 overflow-x-auto border-b border-line">
+      <div
+        role="tablist"
+        aria-label="Customisation groups"
+        className="flex gap-1 overflow-x-auto border-b border-line"
+      >
         {groups.map((g) => (
           <button
             key={g}
@@ -185,7 +264,9 @@ export function Configurator({
             onClick={() => setGroup(g)}
             className={clsx(
               "-mb-px shrink-0 border-b-2 px-2.5 py-3 text-[0.9375rem] transition-colors sm:px-3",
-              group === g ? "border-volt text-chalk" : "border-transparent text-steel hover:text-chalk",
+              group === g
+                ? "border-volt text-chalk"
+                : "border-transparent text-steel hover:text-chalk",
             )}
           >
             {g}
@@ -195,94 +276,161 @@ export function Configurator({
       <div role="tabpanel" className="space-y-7 pt-6">
         {categories
           .filter((c) => c.group === group)
-          .map((c) => (
-            <fieldset key={c.id}>
-              <legend className="flex w-full items-baseline justify-between">
-                <span className="font-medium text-chalk">{c.name}</span>
-                {c.multi && <span className="text-[0.8125rem] text-steel">Choose any</span>}
-              </legend>
-              {c.options[0].swatch ? (
-                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7 lg:grid-cols-4">
-                  {c.options.map((o) => {
-                    const active = selection[c.id].includes(o.id);
-                    return (
-                      <button
-                        key={o.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => choose(c, o.id)}
-                        className={clsx(
-                          "group/sw flex flex-col items-start gap-2 border p-2 text-left transition-colors",
-                          active ? "border-volt bg-volt/10" : "border-line hover:border-steel",
-                        )}
-                      >
-                        <span
-                          className="h-9 w-full border border-white/10"
-                          style={{
-                            background:
-                              o.finish === "matte"
-                                ? o.swatch
-                                : `linear-gradient(135deg, ${o.swatch} 35%, color-mix(in srgb, ${o.swatch} 62%, white) 50%, ${o.swatch} 65%)`,
-                          }}
-                        />
-                        <span className="text-[0.75rem] leading-tight text-silver">{o.name}</span>
-                        <span className="text-[0.75rem] text-steel">{o.price ? formatPrice(o.price) : "Included"}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mt-3 space-y-2">
-                  {c.options.map((o) => {
-                    const active = selection[c.id].includes(o.id);
-                    return (
-                      <button
-                        key={o.id}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => choose(c, o.id)}
-                        className={clsx(
-                          "flex w-full items-center justify-between gap-4 border px-4 py-3 text-left transition-colors",
-                          active ? "border-volt bg-volt/10" : "border-line hover:border-steel",
-                        )}
-                      >
-                        <span>
-                          <span className="block text-[0.9375rem] text-chalk">{o.name}</span>
-                          {o.note && <span className="block text-[0.8125rem] text-steel">{o.note}</span>}
-                        </span>
-                        <span className="shrink-0 text-[0.875rem] text-silver">
-                          {o.price ? formatPrice(o.price) : c.group === "Scene" ? "" : "Included"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {c.id === "paint" && (
-                <div
-                  className={clsx(
-                    "mt-3 flex items-center gap-3 border px-3 py-2.5",
-                    isCustomPaint(selection.paint[0]) ? "border-volt bg-volt/10" : "border-line",
+          .map((c) => {
+            const cat = categoryAvailability(vehicle.asset, c);
+            return (
+              <fieldset key={c.id}>
+                <legend className="flex w-full items-baseline justify-between">
+                  <span className="font-medium text-chalk">{c.name}</span>
+                  {c.multi && cat.available && (
+                    <span className="text-[0.8125rem] text-steel">
+                      Choose any
+                    </span>
                   )}
-                >
-                  <input
-                    id="custom-paint"
-                    type="color"
-                    value={isCustomPaint(selection.paint[0]) ? (paint?.swatch ?? "#8f6bff") : "#8f6bff"}
-                    onChange={(e) => {
-                      setMessage(null);
-                      setSelection((prev) => ({ ...prev, paint: [customPaintId(e.target.value)] }));
-                    }}
-                    className="h-8 w-10 cursor-pointer bg-transparent"
-                  />
-                  <label htmlFor="custom-paint" className="text-[0.8125rem] text-silver">
-                    Custom colour
-                    <span className="block text-steel">Mixed to order, {formatPrice(CUSTOM_PAINT_PRICE)}</span>
-                  </label>
-                </div>
-              )}
-            </fieldset>
-          ))}
+                </legend>
+                {cat.preview === "recorded" && (
+                  <p className="mt-1 text-[0.8125rem] text-steel">
+                    Saved and priced now. Shown in 3D once the {vehicle.model}{" "}
+                    model arrives.
+                  </p>
+                )}
+                {!cat.available && cat.reason && (
+                  <p className="mt-1 text-[0.8125rem] text-steel">
+                    Not available: {cat.reason}
+                  </p>
+                )}
+                {c.options[0].swatch ? (
+                  <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-7 lg:grid-cols-4">
+                    {c.options.map((o) => {
+                      const active = selection[c.id].includes(o.id);
+                      const avail = optionAvailability(vehicle.asset, c, o.id);
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => choose(c, o.id)}
+                          disabled={!avail.available}
+                          title={avail.available ? undefined : avail.reason}
+                          className={clsx(
+                            "group/sw flex flex-col items-start gap-2 border p-2 text-left transition-colors",
+                            active
+                              ? "border-volt bg-volt/10"
+                              : "border-line hover:border-steel",
+                            !avail.available &&
+                              "cursor-not-allowed opacity-40 hover:border-line",
+                          )}
+                        >
+                          <span
+                            className="h-9 w-full border border-white/10"
+                            style={{
+                              background:
+                                o.finish === "matte"
+                                  ? o.swatch
+                                  : `linear-gradient(135deg, ${o.swatch} 35%, color-mix(in srgb, ${o.swatch} 62%, white) 50%, ${o.swatch} 65%)`,
+                            }}
+                          />
+                          <span className="text-[0.75rem] leading-tight text-silver">
+                            {o.name}
+                          </span>
+                          <span className="text-[0.75rem] text-steel">
+                            {o.price ? formatPrice(o.price) : "Included"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {c.options.map((o) => {
+                      const active = selection[c.id].includes(o.id);
+                      const avail = optionAvailability(vehicle.asset, c, o.id);
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => choose(c, o.id)}
+                          disabled={!avail.available}
+                          title={avail.available ? undefined : avail.reason}
+                          className={clsx(
+                            "flex w-full items-center justify-between gap-4 border px-4 py-3 text-left transition-colors",
+                            active
+                              ? "border-volt bg-volt/10"
+                              : "border-line hover:border-steel",
+                            !avail.available &&
+                              "cursor-not-allowed opacity-40 hover:border-line",
+                          )}
+                        >
+                          <span>
+                            <span className="block text-[0.9375rem] text-chalk">
+                              {o.name}
+                            </span>
+                            {!avail.available && avail.reason ? (
+                              <span className="block text-[0.8125rem] text-steel">
+                                Not available: {avail.reason}
+                              </span>
+                            ) : (
+                              o.note && (
+                                <span className="block text-[0.8125rem] text-steel">
+                                  {o.note}
+                                </span>
+                              )
+                            )}
+                          </span>
+                          <span className="shrink-0 text-[0.875rem] text-silver">
+                            {o.price
+                              ? formatPrice(o.price)
+                              : c.group === "Scene"
+                                ? ""
+                                : "Included"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {c.id === "paint" && (
+                  <div
+                    className={clsx(
+                      "mt-3 flex items-center gap-3 border px-3 py-2.5",
+                      isCustomPaint(selection.paint[0])
+                        ? "border-volt bg-volt/10"
+                        : "border-line",
+                    )}
+                  >
+                    <input
+                      id="custom-paint"
+                      type="color"
+                      value={
+                        isCustomPaint(selection.paint[0])
+                          ? (paint?.swatch ?? "#8f6bff")
+                          : "#8f6bff"
+                      }
+                      onChange={(e) => {
+                        setMessage(null);
+                        setSelection((prev) => ({
+                          ...prev,
+                          paint: [customPaintId(e.target.value)],
+                        }));
+                      }}
+                      disabled={!cat.available}
+                      className="h-8 w-10 cursor-pointer bg-transparent disabled:cursor-not-allowed disabled:opacity-40"
+                    />
+                    <label
+                      htmlFor="custom-paint"
+                      className="text-[0.8125rem] text-silver"
+                    >
+                      Custom colour
+                      <span className="block text-steel">
+                        Mixed to order, {formatPrice(CUSTOM_PAINT_PRICE)}
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </fieldset>
+            );
+          })}
       </div>
     </div>
   );
@@ -290,13 +438,19 @@ export function Configurator({
   return (
     <div className="lg:grid lg:h-[calc(100dvh-4rem)] lg:grid-cols-[1fr_26rem]">
       {/* Viewport */}
-      <section aria-label="Vehicle viewport" className="relative flex h-[58dvh] flex-col lg:h-auto">
+      <section
+        aria-label="Vehicle viewport"
+        className="relative flex h-[58dvh] flex-col lg:h-auto"
+      >
         <ShowroomStage vehicle={vehicle} look={look}>
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-4 p-5">
             <div>
               <p className="type-label">{vehicle.manufacturer}</p>
               <h1 className="type-heading">
-                {vehicle.model} <span className="font-normal text-silver">{vehicle.variant}</span>
+                {vehicle.model}{" "}
+                <span className="font-normal text-silver">
+                  {vehicle.variant}
+                </span>
               </h1>
             </div>
             <Link
@@ -309,9 +463,24 @@ export function Configurator({
 
           {!modelReady && (
             <p className="pointer-events-none absolute left-5 top-[4.75rem] max-w-[17rem] border-l-2 border-volt bg-carbon/70 px-3 py-2 text-[0.8125rem] leading-snug text-silver backdrop-blur">
-              <span className="block font-medium text-chalk">Material sample, not the {vehicle.model}</span>
-              No licensed 3D model of this car has been sourced yet. Your paint, caliper, leather and stitching choices
-              are shown on sample forms.
+              {hasModel ? (
+                <>
+                  <span className="block font-medium text-chalk">
+                    Development placeholder, not the {vehicle.model}
+                  </span>
+                  This model is a stand-in for testing the studio. It has not
+                  been verified as accurate.
+                </>
+              ) : (
+                <>
+                  <span className="block font-medium text-chalk">
+                    Material sample, not the {vehicle.model}
+                  </span>
+                  No licensed 3D model of this car has been sourced yet. Your
+                  paint, caliper, leather and stitching choices are shown on
+                  sample forms.
+                </>
+              )}
             </p>
           )}
         </ShowroomStage>
@@ -338,13 +507,20 @@ export function Configurator({
             className="shell flex h-16 w-full items-center justify-between"
           >
             <span className="text-left">
-              <span className="block text-[0.75rem] text-steel">Options, illustrative</span>
+              <span className="block text-[0.75rem] text-steel">
+                Options, illustrative
+              </span>
               <span className="type-heading">{formatPrice(total)}</span>
             </span>
-            <span className="text-[0.9375rem] text-chalk">{sheetOpen ? "Hide build" : "Review build"}</span>
+            <span className="text-[0.9375rem] text-chalk">
+              {sheetOpen ? "Hide build" : "Review build"}
+            </span>
           </button>
           {sheetOpen && (
-            <div id="build-sheet" className="shell max-h-[62dvh] overflow-y-auto border-t border-line py-5">
+            <div
+              id="build-sheet"
+              className="shell max-h-[62dvh] overflow-y-auto border-t border-line py-5"
+            >
               {summary}
             </div>
           )}

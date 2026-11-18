@@ -21,3 +21,18 @@ export function paintProps(color: string, finish: Option["finish"] = "gloss"): P
 }
 
 export const HEX = /^#[0-9a-f]{6}$/i;
+
+/** Interior trim finishes. Carbon fibre is an approximation: no weave texture yet. */
+export interface TrimProps {
+  color: string;
+  metalness: number;
+  roughness: number;
+}
+
+export const TRIM: Record<string, TrimProps> = {
+  "piano-black": { color: "#050506", metalness: 0.1, roughness: 0.08 },
+  "brushed-aluminium": { color: "#a9adb3", metalness: 1, roughness: 0.38 },
+  "carbon-fibre": { color: "#1b1c1f", metalness: 0.4, roughness: 0.3 },
+};
+
+export const trimProps = (optionId: string | undefined): TrimProps => TRIM[optionId ?? ""] ?? TRIM["piano-black"];

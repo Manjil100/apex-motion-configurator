@@ -103,7 +103,7 @@ export const categories: Category[] = [
     options: [
       { id: "piano-black", name: "Piano black", price: 0 },
       { id: "brushed-aluminium", name: "Brushed aluminium", price: 1200 },
-      { id: "carbon-fibre", name: "Carbon fibre", price: 3400 },
+      { id: "carbon-fibre", name: "Carbon fibre", price: 3400, note: "Shown as a dark satin finish until a weave texture is added" },
     ],
   },
   {

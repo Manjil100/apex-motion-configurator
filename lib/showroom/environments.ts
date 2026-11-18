@@ -52,8 +52,8 @@ export const ENVIRONMENTS: Record<EnvironmentId, EnvironmentRig> = {
   night: {
     background: "#030407",
     floor: "#050609",
-    ambient: 0.06,
-    key: { position: [-3, 6, 4], intensity: 0.9, color: "#b9c8ff" },
+    ambient: 0.12,
+    key: { position: [-3, 6, 4], intensity: 1.3, color: "#b9c8ff" },
     panels: [
       { position: [0, 5, 0], scale: [7, 0.35, 1], rotation: [Math.PI / 2, 0, 0], color: "#dfe6ff", intensity: 6 },
       { position: [-6, 1.2, -3], scale: [0.3, 3, 1], rotation: [0, Math.PI / 3, 0], color: "#8f6bff", intensity: 12 },

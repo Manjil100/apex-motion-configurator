@@ -4,7 +4,7 @@ Configure your dream. Experience the difference.
 
 An independent concept platform for configuring performance cars in 3D. Not affiliated with any vehicle manufacturer.
 
-**Status: Phase 2 of 8 complete.** The configurator now runs a real-time 3D studio. No licensed car model exists yet, so the studio shows a labelled material sample, not a car. There is no database or sign-in yet; the pages say so wherever that matters.
+**Status: Phases 1, 2 and 4 complete; Phase 3 waiting on an asset.** The configurator runs a real-time 3D studio and a customisation engine that switches off options a model cannot show. No licensed car model exists yet, so catalogue cars show a labelled material sample, not a car. There is no database or sign-in yet; the pages say so wherever that matters.
 
 ## Run it
 
@@ -24,6 +24,9 @@ Other scripts:
 | `npm run lint` | ESLint |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm test` | Unit tests (Vitest) |
+| `npm run asset:inspect -- model.glb [--out draft.json]` | List a model's real parts, materials, textures, size and problems; optionally write a draft manifest |
+| `npm run asset:optimise -- in.glb out.glb [--ratio 0.5] [--texture 2048]` | Shrink a model for the web: simplify, WebP textures, Meshopt compression, names kept |
+| `npm run asset:fixture` | Rebuild the loader test model (blocks, not a vehicle) |
 
 No environment variables are needed in Phase 1. `.env.example` lists the ones Phase 6 will use.
 
@@ -47,10 +50,13 @@ components/
                           Studio, CameraRig, VehicleModel, SampleForm (placeholder)
   cars/ configurator/ compare/ garage/ contact/ auth/
 lib/
-  vehicles/               types.ts (data model), data.ts (nine-car seed), slots.ts (mesh mapping, disposal)
+  vehicles/               types.ts (data model), data.ts (nine-car seed), slots.ts (mesh mapping, visibility,
+                          disposal), fixture.ts (loader test model manifest, not in the catalogue)
   showroom/               quality.ts, environments.ts, cameras.ts, materials.ts
-  customisation/          options.ts (categories, pricing, share-link encoding)
+  customisation/          options.ts (categories, pricing, share links), capabilities.ts (what each model can show)
 stores/                   garage.ts (saved builds), showroom.ts (quality tier, camera commands)
+tools/asset-pipeline/     inspect, optimise and fixture scripts
+public/fixtures/          compressed loader test model
 tests/                    unit tests
 docs/                     adding-a-vehicle.md, phase-1-report.md
 ```
@@ -79,11 +85,11 @@ git push -u origin main
 
 1. Set-up, design system, brand, routing, page layouts (done)
 2. 3D showroom and vehicle loading system (done)
-3. Porsche 911 as the first configurable car
-4. Reusable customisation engine
+3. Porsche 911 as the first configurable car (waiting on a licensed model)
+4. Reusable customisation engine (done)
 5. Remaining eight cars
 6. Supabase, authentication, saved builds, garage
 7. Compare, gallery, sharing, admin
 8. Testing, optimisation, security review, deployment
 
-See `docs/phase-1-report.md` and `docs/phase-2-report.md` for what was tested and what is deliberately not live.
+See the reports in `docs/` for what was tested and what is deliberately not live. `/dev/loader-test` runs the configurator against the test model; it is switched off in production.

@@ -65,12 +65,24 @@ export type AssetStatus =
   /** Purchased, inspected and signed off in docs/asset-reports. */
   | "verified";
 
+/** Parts an option switches on or off, by the model's real node names. */
+export interface VisibilityRule {
+  show: string[];
+  hide?: string[];
+}
+
 export interface VehicleAsset {
   status: AssetStatus;
   /** Path or URL of the GLB once one exists. */
   modelUrl: string | null;
   licence: { vendor: string; listing: string; terms: string; commercialUse: boolean } | null;
   slots: Partial<Record<MeshSlot, SlotMapping>>;
+  /**
+   * Options that change geometry rather than colour. Keyed by option id from
+   * lib/customisation/options.ts. An option with no rule is unavailable on this model.
+   * The "standard" wheel needs no rule: it is whatever wheel the model ships with.
+   */
+  visibility?: { wheels?: Record<string, VisibilityRule>; body?: Record<string, VisibilityRule> };
   cameras: Partial<Record<"front" | "rear" | "side" | "threeQuarter" | "interior", CameraPreset>>;
   lighting: { defaultEnvironment: "studio" | "day" | "night" };
 }

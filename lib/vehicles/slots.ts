@@ -1,5 +1,5 @@
 import type { Material, Mesh, Object3D } from "three";
-import type { MeshSlot, SlotMapping, VehicleAsset } from "./types";
+import type { MeshSlot, SlotMapping, VehicleAsset, VisibilityRule } from "./types";
 
 /**
  * Slot resolver: the bridge between a model's real node and material names
@@ -68,4 +68,40 @@ export function disposeObject(root: Object3D): void {
       m.dispose();
     }
   });
+}
+
+/**
+ * Shows the parts of the selected options and hides the parts of the others.
+ * Returns the number of named nodes it found, so a manifest typo shows up as 0.
+ */
+export function applyVisibility(
+  root: Object3D,
+  rules: Record<string, VisibilityRule> | undefined,
+  selected: string[],
+): number {
+  if (!rules) return 0;
+  const byName = new Map<string, Object3D>();
+  root.traverse((node) => {
+    if (node.name) byName.set(node.name, node);
+  });
+  let found = 0;
+  const set = (names: string[] | undefined, visible: boolean) => {
+    for (const name of names ?? []) {
+      const node = byName.get(name);
+      if (!node) continue;
+      node.visible = visible;
+      found++;
+    }
+  };
+  // Undo every unselected rule first (hide what it adds, restore what it hides), then apply the selected ones.
+  for (const [id, rule] of Object.entries(rules)) {
+    if (selected.includes(id)) continue;
+    set(rule.show, false);
+    set(rule.hide, true);
+  }
+  for (const id of selected) {
+    set(rules[id]?.show, true);
+    set(rules[id]?.hide, false);
+  }
+  return found;
 }

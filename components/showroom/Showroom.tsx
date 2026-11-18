@@ -6,20 +6,15 @@ import { PerformanceMonitor, useProgress } from "@react-three/drei";
 import { ACESFilmicToneMapping } from "three";
 import type { Vehicle } from "@/lib/vehicles/types";
 import type { EnvironmentId } from "@/lib/showroom/environments";
-import type { PaintProps } from "@/lib/showroom/materials";
 import { detectTier, lowerTier, QUALITY } from "@/lib/showroom/quality";
 import { DEFAULT_CAMERAS } from "@/lib/showroom/cameras";
 import { useShowroom } from "@/stores/showroom";
 import { Studio } from "./Studio";
 import { CameraRig } from "./CameraRig";
 import { SampleForm } from "./SampleForm";
-import { VehicleModel } from "./VehicleModel";
+import { VehicleModel, type ModelLook } from "./VehicleModel";
 
-export interface ShowroomLook {
-  paint: PaintProps;
-  caliper: string;
-  leather: string;
-  stitching: string;
+export interface ShowroomLook extends ModelLook {
   environment: EnvironmentId;
 }
 
@@ -91,13 +86,7 @@ export default function Showroom({
       {asset.modelUrl ? (
         <ModelBoundary key={asset.modelUrl} onError={onModelError}>
           <Suspense fallback={null}>
-            <VehicleModel
-              asset={{ ...asset, modelUrl: asset.modelUrl }}
-              paint={look.paint}
-              caliper={look.caliper}
-              leather={look.leather}
-              stitching={look.stitching}
-            />
+            <VehicleModel asset={{ ...asset, modelUrl: asset.modelUrl }} look={look} />
           </Suspense>
         </ModelBoundary>
       ) : (

@@ -3,38 +3,56 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Notice } from "@/components/ui/PageHeader";
+import { validateContact, type ContactErrors, type ContactFields } from "@/lib/validation/contact";
+import { sendEnquiry } from "@/app/contact/actions";
 
-type Fields = { name: string; email: string; subject: string; message: string };
-const empty: Fields = { name: "", email: "", subject: "", message: "" };
-
-export function validateContact(v: Fields): Partial<Record<keyof Fields, string>> {
-  const errors: Partial<Record<keyof Fields, string>> = {};
-  if (v.name.trim().length < 2) errors.name = "Enter your name.";
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.email.trim())) errors.email = "Enter an email address like name@example.com.";
-  if (v.subject.trim().length < 3) errors.subject = "Add a subject of at least 3 characters.";
-  if (v.message.trim().length < 20) errors.message = "Write a message of at least 20 characters.";
-  if (v.message.length > 2000) errors.message = "Keep your message under 2,000 characters.";
-  return errors;
-}
+const empty: ContactFields = { name: "", email: "", subject: "", message: "" };
 
 export function ContactForm() {
-  const [values, setValues] = useState<Fields>(empty);
-  const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
-  const [checked, setChecked] = useState(false);
+  const [values, setValues] = useState<ContactFields>(empty);
+  const [errors, setErrors] = useState<ContactErrors>({});
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
 
-  const set = (key: keyof Fields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const set = (key: keyof ContactFields) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setValues((v) => ({ ...v, [key]: e.target.value }));
-    setChecked(false);
-  };
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setFailure(null);
     const found = validateContact(values);
     setErrors(found);
-    setChecked(Object.keys(found).length === 0);
+    if (Object.keys(found).length) return;
+    setBusy(true);
+    try {
+      const result = await sendEnquiry(new FormData(e.currentTarget));
+      if (result.ok) {
+        setSent(true);
+        setValues(empty);
+      } else {
+        setErrors(result.errors ?? {});
+        setFailure(result.message ?? null);
+      }
+    } catch {
+      setFailure("Your message was not sent. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const field = (key: keyof Fields, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+  if (sent) {
+    return (
+      <div className="space-y-6">
+        <Notice title="Message sent">Thanks. We have your message and will reply to the email address you gave.</Notice>
+        <Button variant="secondary" onClick={() => setSent(false)}>
+          Send another message
+        </Button>
+      </div>
+    );
+  }
+
+  const field = (key: keyof ContactFields, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <div>
       <label htmlFor={key} className="mb-2 block text-[0.9375rem] text-chalk">
         {label}
@@ -60,10 +78,10 @@ export function ContactForm() {
   return (
     <form onSubmit={submit} noValidate className="space-y-5">
       <div className="grid gap-5 sm:grid-cols-2">
-        {field("name", "Name", { autoComplete: "name" })}
-        {field("email", "Email", { type: "email", autoComplete: "email" })}
+        {field("name", "Name", { autoComplete: "name", maxLength: 80 })}
+        {field("email", "Email", { type: "email", autoComplete: "email", maxLength: 254 })}
       </div>
-      {field("subject", "Subject")}
+      {field("subject", "Subject", { maxLength: 120 })}
       <div>
         <label htmlFor="message" className="mb-2 block text-[0.9375rem] text-chalk">
           Message
@@ -72,6 +90,7 @@ export function ContactForm() {
           id="message"
           name="message"
           rows={6}
+          maxLength={2000}
           value={values.message}
           onChange={set("message")}
           aria-invalid={Boolean(errors.message)}
@@ -84,14 +103,17 @@ export function ContactForm() {
           </p>
         )}
       </div>
-      <Button type="submit" size="lg">
-        Send message
+      <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label htmlFor="company">Company</label>
+        <input id="company" name="company" tabIndex={-1} autoComplete="off" />
+      </div>
+      <Button type="submit" size="lg" disabled={busy}>
+        {busy ? "Sending…" : "Send message"}
       </Button>
-      {checked && (
-        <Notice title="Your message passed every check, but it has not been sent">
-          Message delivery connects with the database in Phase 6. Until then nothing leaves this page and nothing is
-          stored.
-        </Notice>
+      {failure && (
+        <p role="alert" className="border-l-2 border-flag bg-slate px-4 py-3 text-[0.9375rem] text-chalk">
+          {failure}
+        </p>
       )}
     </form>
   );

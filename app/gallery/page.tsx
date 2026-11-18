@@ -12,8 +12,9 @@ export default function GalleryPage() {
         <div className="border border-line px-6 py-20 text-center">
           <p className="type-heading">Nothing has been published yet</p>
           <p className="mx-auto mt-2 max-w-lg text-silver">
-            Publishing, likes and favourites open when accounts go live. This page will only ever show real builds made
-            by real people, so for now it is empty.
+            Publishing, likes and favourites open in the next update. This page will only ever show real builds made by
+            real people, so for now it is empty. Accounts are open: save a build to your account now and it will be
+            ready to publish.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
             <LinkButton href="/configure" size="lg">

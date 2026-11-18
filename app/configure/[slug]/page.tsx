@@ -20,7 +20,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 /** Reads the share string or saved-build id from the query, so it streams inside Suspense. */
 async function ConfiguratorFromQuery({ vehicle, searchParams }: { vehicle: Vehicle; searchParams: Search }) {
   const { c, build } = await searchParams;
-  return <Configurator key={`${vehicle.slug}-${build ?? c ?? "new"}`} vehicle={vehicle} initial={c} buildId={build} />;
+  // Keyed on the car and the share string only. Saving a build adds ?build= to the URL, and that
+  // must not remount the configurator (it would reload the 3D studio and drop the "Saved" message).
+  return <Configurator key={`${vehicle.slug}-${c ?? ""}`} vehicle={vehicle} initial={c} buildId={build} />;
 }
 
 export default async function ConfigurePage({ params, searchParams }: Props) {

@@ -18,9 +18,9 @@ export default function AdminPage() {
     <>
       <PageHeader title="Admin" lead="Catalogue, assets, users and moderation." />
       <div className="shell space-y-10 py-10">
-        <Notice title="Admin is locked until sign-in exists">
-          Administrator access is checked on the server against a role in the database, never in the browser. That
-          check arrives with authentication in Phase 6, so every tool below is unavailable and holds no data.
+        <Notice title="Admin tools arrive in Phase 7">
+          Accounts and the admin role now exist in the database, and the database already refuses catalogue changes
+          from anyone who is not an admin. The screens below are built in Phase 7.
         </Notice>
         <ul className="grid gap-px border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) => (

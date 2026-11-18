@@ -20,7 +20,7 @@ import {
   type Category,
   type Selection,
 } from "@/lib/customisation/options";
-import { useGarage } from "@/stores/garage";
+import { useBuilds } from "@/lib/garage/useBuilds";
 import { ShowroomStage } from "@/components/showroom/ShowroomStage";
 import { paintProps, trimProps } from "@/lib/showroom/materials";
 import {
@@ -44,7 +44,8 @@ export function Configurator({
   buildId?: string;
 }) {
   const router = useRouter();
-  const garage = useGarage();
+  const garage = useBuilds();
+  const [saving, setSaving] = useState(false);
   const existing = buildId
     ? garage.builds.find(
         (b) => b.id === buildId && b.vehicleSlug === vehicle.slug,
@@ -68,13 +69,11 @@ export function Configurator({
 
   // A saved build is only readable after the garage store has hydrated from local storage.
   if (existing && loadedBuild !== existing.id) {
-    const loaded = sanitiseSelection(
-      vehicle.asset,
-      structuredClone(existing.selection),
-    );
+    const loaded = sanitiseSelection(vehicle.asset, structuredClone(existing.selection));
     setLoadedBuild(existing.id);
     setSelection(loaded.selection);
-    setMessage(removedNote(loaded.removed));
+    const note = removedNote(loaded.removed);
+    if (note) setMessage(note);
   }
 
   const total = useMemo(() => optionsTotal(selection), [selection]);
@@ -146,21 +145,24 @@ export function Configurator({
     });
   };
 
-  const save = () => {
+  const save = async () => {
+    setSaving(true);
+    setMessage(null);
+    const where = garage.where === "account" ? "your account" : "My garage on this device";
     if (existing) {
-      garage.update(existing.id, selection);
-      setMessage(`Saved changes to “${existing.name}”.`);
+      const ok = await garage.update(existing.id, selection);
+      setMessage(ok ? `Saved changes to “${existing.name}”.` : "Changes were not saved. Try again.");
     } else {
-      const build = garage.save({
-        name: `${vehicleName(vehicle)} build`,
-        vehicleSlug: vehicle.slug,
-        selection,
-      });
-      router.replace(`/configure/${vehicle.slug}?build=${build.id}`, {
-        scroll: false,
-      });
-      setMessage("Saved to My garage on this device.");
+      const build = await garage.save({ name: `${vehicleName(vehicle)} build`, vehicleSlug: vehicle.slug, selection });
+      if (build) {
+        setLoadedBuild(build.id);
+        router.replace(`/configure/${vehicle.slug}?build=${build.id}`, { scroll: false });
+        setMessage(`Saved to ${where}.`);
+      } else {
+        setMessage("The build was not saved. Check your connection and try again.");
+      }
     }
+    setSaving(false);
   };
 
   const reset = () => {
@@ -217,8 +219,8 @@ export function Configurator({
         </p>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Button onClick={save} className="col-span-2">
-          {existing ? "Save changes" : "Save configuration"}
+        <Button onClick={() => void save()} className="col-span-2" disabled={saving}>
+          {saving ? "Saving…" : existing ? "Save changes" : "Save configuration"}
         </Button>
         <Button variant="secondary" onClick={share}>
           Copy share link

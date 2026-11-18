@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { clsx } from "clsx";
 import { Logo } from "@/components/brand/Logo";
 import { buttonClass } from "./Button";
+import { displayName, useSession } from "@/stores/session";
 
 const links = [
   { href: "/cars", label: "Cars" },
@@ -18,6 +19,8 @@ const links = [
 export function Nav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { ready, user, signOut } = useSession();
+  const accountLabel = user ? displayName(user) : "";
 
   useEffect(() => {
     if (!open) return;
@@ -57,9 +60,23 @@ export function Nav() {
         </nav>
 
         <div className="hidden items-center gap-5 lg:flex">
-          <Link href="/auth/login" className="text-[0.9375rem] text-steel transition-colors hover:text-chalk">
-            Sign in
-          </Link>
+          {ready && user ? (
+            <span className="flex items-center gap-4 text-[0.9375rem]">
+              <span className="max-w-[10rem] truncate text-silver" title={user.email ?? undefined}>
+                {accountLabel}
+              </span>
+              <button type="button" onClick={() => void signOut()} className="text-steel transition-colors hover:text-chalk">
+                Sign out
+              </button>
+            </span>
+          ) : (
+            <Link
+              href="/auth/login"
+              className={clsx("text-[0.9375rem] text-steel transition-colors hover:text-chalk", !ready && "invisible")}
+            >
+              Sign in
+            </Link>
+          )}
           <Link href="/configure" className={buttonClass("primary", "md")}>
             Start customising
           </Link>
@@ -82,7 +99,7 @@ export function Nav() {
       {open && (
         <div id="mobile-menu" className="fixed inset-x-0 top-16 bottom-0 overflow-y-auto bg-carbon lg:hidden">
           <nav aria-label="Mobile" className="shell flex flex-col py-6">
-            {[...links, { href: "/contact", label: "Contact" }, { href: "/auth/login", label: "Sign in" }].map((l) => (
+            {[...links, { href: "/contact", label: "Contact" }, ...(user ? [] : [{ href: "/auth/login", label: "Sign in" }])].map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
@@ -96,6 +113,18 @@ export function Nav() {
                 {l.label}
               </Link>
             ))}
+            {user && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  void signOut();
+                }}
+                className="type-heading border-b border-line py-5 text-left text-silver"
+              >
+                Sign out <span className="block text-[0.875rem] font-normal text-steel">{user.email}</span>
+              </button>
+            )}
             <Link href="/configure" onClick={() => setOpen(false)} className={buttonClass("primary", "lg", "mt-8")}>
               Start customising
             </Link>

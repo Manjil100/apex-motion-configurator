@@ -3,6 +3,7 @@ import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { Nav } from "@/components/ui/Nav";
 import { Footer } from "@/components/ui/Footer";
+import { SessionWatcher } from "@/components/auth/SessionWatcher";
 
 export const metadata: Metadata = {
   title: {
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
+        <SessionWatcher />
         <Nav />
         <main id="main" className="flex-1">
           {children}
